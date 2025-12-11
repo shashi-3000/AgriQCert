@@ -1,22 +1,26 @@
 // src/utils/api.js
-import axios from 'axios';
+import axios from "axios";
 
 // Base API configuration
-const API_BASE_URL = 'http://localhost:8083/api/v1';
+// Use environment variable or default to localhost backend
+// In production, this should be configured via environment variables
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8083/api/v1";
 
 // Create axios instance with default configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
+  withCredentials: false, // Set to true if using cookies for auth
 });
 
 // Request interceptor - Automatically attach accessToken to all requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem("accessToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -38,8 +42,8 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        
+        const refreshToken = localStorage.getItem("refreshToken");
+
         if (!refreshToken) {
           // No refresh token available, redirect to login
           handleAuthFailure();
@@ -52,9 +56,9 @@ api.interceptors.response.use(
         });
 
         const { accessToken } = response.data.data;
-        
+
         // Store the new access token
-        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem("accessToken", accessToken);
 
         // Update the authorization header and retry the original request
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
@@ -72,13 +76,13 @@ api.interceptors.response.use(
 
 // Handle authentication failure
 const handleAuthFailure = () => {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+
   // Only redirect if not already on login page
-  if (!window.location.pathname.includes('/login')) {
-    window.location.href = '/login';
+  if (!window.location.pathname.includes("/login")) {
+    window.location.href = "/login";
   }
 };
 
@@ -96,29 +100,31 @@ export const handleApiError = (error, toast) => {
           toast?.error(`${err.field}: ${err.message}`);
         });
       } else {
-        toast?.error(message || 'Invalid request. Please check your input.');
+        toast?.error(message || "Invalid request. Please check your input.");
       }
       break;
     case 401:
       // Unauthorized - handled by interceptor
-      toast?.error('Session expired. Please login again.');
+      toast?.error("Session expired. Please login again.");
       break;
     case 403:
       // Forbidden
-      toast?.error('You do not have permission to perform this action.');
+      toast?.error("You do not have permission to perform this action.");
       break;
     case 404:
       // Not found
-      toast?.error(message || 'Resource not found.');
+      toast?.error(message || "Resource not found.");
       break;
     case 409:
       // Conflict (e.g., duplicate email)
-      toast?.error(message || 'Resource already exists.');
+      toast?.error(message || "Resource already exists.");
       break;
     case 500:
     default:
       // Server error
-      toast?.error(message || 'An unexpected error occurred. Please try again.');
+      toast?.error(
+        message || "An unexpected error occurred. Please try again."
+      );
       break;
   }
 

@@ -1,49 +1,71 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Package, FileCheck, ScanLine, Leaf, Shield, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Package,
+  FileCheck,
+  ScanLine,
+  Leaf,
+  Shield,
+  CheckCircle,
+} from "lucide-react";
 import toast from "react-hot-toast";
-import authService from '../services/authService';
-import { handleApiError } from '../utils/api';
+import authService from "../services/authService";
+import { handleApiError } from "../utils/api";
 
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check if user is already logged in and redirect
+  useEffect(() => {
+    const user = authService.getStoredUser();
+    if (user && authService.isAuthenticated()) {
+      console.log("[Login] User already logged in, redirecting to dashboard");
+      const redirectPath = getRedirectPath(user.role);
+      navigate(redirectPath, { replace: true });
+    }
+  }, [navigate]);
 
   // Get redirect path based on user role
   const getRedirectPath = (role) => {
     const roleUpper = role?.toUpperCase();
     switch (roleUpper) {
-      case 'EXPORTER':
-        return '/exporter/dashboard';
-      case 'QA_AGENCY':
-        return '/qa/dashboard';
-      case 'CUSTOMS_OFFICIAL':
-        return '/verify';
-      case 'ADMIN':
-        return '/admin/dashboard';
+      case "EXPORTER":
+        return "/exporter/dashboard";
+      case "QA_AGENCY":
+        return "/qa/dashboard";
+      case "CUSTOMS_OFFICIAL":
+        return "/verify";
+      case "ADMIN":
+        return "/admin/dashboard";
       default:
-        return '/';
+        return "/";
     }
   };
 
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        [name]: "",
       }));
     }
   };
@@ -53,15 +75,15 @@ const Login = () => {
     const newErrors = {};
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = "Email is invalid";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = "Password must be at least 6 characters";
     }
 
     setErrors(newErrors);
@@ -86,37 +108,40 @@ const Login = () => {
       });
 
       // Success notification
-      toast.success('Login successful!');
+      toast.success("Login successful!");
 
       // Redirect based on role from response
       const redirectPath = getRedirectPath(response.user?.role);
       navigate(redirectPath);
-
     } catch (error) {
-      console.error('Login error:', error);
-      
+      console.error("Login error:", error);
+
       // Handle specific error cases
       const status = error.response?.status;
       const message = error.response?.data?.message;
-      
+
       if (status === 401) {
-        setErrors({ submit: 'Invalid email or password. Please try again.' });
-        toast.error('Invalid credentials');
+        setErrors({ submit: "Invalid email or password. Please try again." });
+        toast.error("Invalid credentials");
       } else if (status === 400) {
         // Validation errors from backend
         const apiErrors = error.response?.data?.errors;
         if (apiErrors?.length > 0) {
           const fieldErrors = {};
-          apiErrors.forEach(err => {
+          apiErrors.forEach((err) => {
             fieldErrors[err.field] = err.message;
           });
           setErrors(fieldErrors);
         } else {
-          setErrors({ submit: message || 'Invalid request. Please check your input.' });
+          setErrors({
+            submit: message || "Invalid request. Please check your input.",
+          });
         }
-        toast.error(message || 'Login failed');
+        toast.error(message || "Login failed");
       } else {
-        setErrors({ submit: message || 'An error occurred. Please try again.' });
+        setErrors({
+          submit: message || "An error occurred. Please try again.",
+        });
         handleApiError(error, toast);
       }
     } finally {
@@ -133,7 +158,6 @@ const Login = () => {
       </div>
 
       <div className="relative max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
         {/* Left Side - Info Section */}
         <div className="hidden lg:flex flex-col justify-center">
           <div className="mb-10">
@@ -144,22 +168,40 @@ const Login = () => {
               <span className="font-bold text-4xl text-white">AgriQCert</span>
             </div>
             <p className="text-emerald-200 text-xl leading-relaxed">
-              Secure digital certification for agricultural imports and exports worldwide
+              Secure digital certification for agricultural imports and exports
+              worldwide
             </p>
           </div>
 
           <div className="space-y-6">
             {[
-              { icon: Package, title: 'For Exporters', desc: 'Submit batches, track inspections, and receive digital certificates' },
-              { icon: FileCheck, title: 'For QA Agencies', desc: 'Conduct inspections and issue verifiable quality credentials' },
-              { icon: ScanLine, title: 'For Customs Officials', desc: 'Instantly verify certificates using QR codes at checkpoints' }
+              {
+                icon: Package,
+                title: "For Exporters",
+                desc: "Submit batches, track inspections, and receive digital certificates",
+              },
+              {
+                icon: FileCheck,
+                title: "For QA Agencies",
+                desc: "Conduct inspections and issue verifiable quality credentials",
+              },
+              {
+                icon: ScanLine,
+                title: "For Customs Officials",
+                desc: "Instantly verify certificates using QR codes at checkpoints",
+              },
             ].map((item, i) => (
-              <div key={i} className="flex items-start space-x-4 bg-white/5 backdrop-blur-sm rounded-2xl p-5 border border-white/10">
+              <div
+                key={i}
+                className="flex items-start space-x-4 bg-white/5 backdrop-blur-sm rounded-2xl p-5 border border-white/10"
+              >
                 <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl p-3 shadow-lg">
                   <item.icon className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg text-white mb-1">{item.title}</h3>
+                  <h3 className="font-semibold text-lg text-white mb-1">
+                    {item.title}
+                  </h3>
                   <p className="text-emerald-200/80 text-sm">{item.desc}</p>
                 </div>
               </div>
@@ -201,10 +243,12 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Email Address
               </label>
               <div className="relative">
@@ -216,7 +260,9 @@ const Login = () => {
                   value={formData.email}
                   onChange={handleChange}
                   className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
-                    errors.email ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+                    errors.email
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-200 hover:border-gray-300"
                   }`}
                   placeholder="your@email.com"
                 />
@@ -231,19 +277,24 @@ const Login = () => {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
-                    errors.password ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+                    errors.password
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-200 hover:border-gray-300"
                   }`}
                   placeholder="••••••••"
                 />
@@ -252,7 +303,11 @@ const Login = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
                 </button>
               </div>
               {errors.password && (
@@ -271,11 +326,17 @@ const Login = () => {
                   type="checkbox"
                   className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
                 />
-                <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor="remember"
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   Remember me
                 </label>
               </div>
-              <Link to="/forgot-password" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+              >
                 Forgot password?
               </Link>
             </div>
@@ -293,15 +354,30 @@ const Login = () => {
               disabled={isLoading}
               className={`w-full py-4 px-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center shadow-lg ${
                 isLoading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/25'
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/25"
               }`}
             >
               {isLoading ? (
                 <>
-                  <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  <svg
+                    className="animate-spin h-5 w-5 mr-2"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
                   </svg>
                   Logging in...
                 </>
@@ -320,14 +396,16 @@ const Login = () => {
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">New to AgriQCert?</span>
+              <span className="px-4 bg-white text-gray-500">
+                New to AgriQCert?
+              </span>
             </div>
           </div>
 
           {/* Register Link */}
           <div className="text-center">
-            <Link 
-              to="/register" 
+            <Link
+              to="/register"
               className="inline-flex items-center justify-center w-full py-3.5 px-4 border-2 border-emerald-500 text-emerald-600 font-semibold rounded-xl hover:bg-emerald-50 transition-all"
             >
               Create an Account

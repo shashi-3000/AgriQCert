@@ -1,17 +1,67 @@
 // src/pages/Register.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, Building, MapPin, ArrowRight, Eye, EyeOff, Shield, Leaf, Truck, CheckCircle } from "lucide-react";
+import {
+  User,
+  Mail,
+  Lock,
+  Phone,
+  Building,
+  MapPin,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Shield,
+  Leaf,
+  Truck,
+  CheckCircle,
+  FileText,
+} from "lucide-react";
 import toast from "react-hot-toast";
-import authService from '../services/authService';
-import { handleApiError } from '../utils/api';
+import authService from "../services/authService";
+import { handleApiError } from "../utils/api";
 
 // User roles as per backend
 const USER_ROLES = [
-  { value: 'EXPORTER', label: 'Exporter', icon: Truck, description: 'Submit batches for quality certification', color: 'emerald' },
-  { value: 'QA_AGENCY', label: 'QA Agency', icon: Shield, description: 'Inspect batches and issue credentials', color: 'blue' },
-  { value: 'CUSTOMS_OFFICIAL', label: 'Customs Official', icon: CheckCircle, description: 'Verify certificates at checkpoints', color: 'purple' },
+  {
+    value: "EXPORTER",
+    label: "Exporter",
+    icon: Truck,
+    description: "Submit batches for quality certification",
+    color: "emerald",
+  },
+  {
+    value: "QA_AGENCY",
+    label: "QA Agency",
+    icon: Shield,
+    description: "Inspect batches and issue credentials",
+    color: "blue",
+  },
+  {
+    value: "CUSTOMS_OFFICIAL",
+    label: "Customs Official",
+    icon: CheckCircle,
+    description: "Verify certificates at checkpoints",
+    color: "purple",
+  },
 ];
+
+// Get redirect path based on role
+const getRedirectPath = (role) => {
+  const roleUpper = role?.toUpperCase();
+  switch (roleUpper) {
+    case "EXPORTER":
+      return "/exporter/dashboard";
+    case "QA_AGENCY":
+      return "/qa/dashboard";
+    case "CUSTOMS_OFFICIAL":
+      return "/verify";
+    case "ADMIN":
+      return "/admin/dashboard";
+    default:
+      return "/";
+  }
+};
 
 const Register = () => {
   const navigate = useNavigate();
@@ -26,23 +76,36 @@ const Register = () => {
     phoneNumber: "",
     companyName: "",
     companyAddress: "",
-    licenseNumber: "" // For QA agencies
+    licenseNumber: "", // For QA agencies and Customs Officials
+    businessRegistrationNumber: "", // For Exporters
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
+  // Check if user is already logged in and redirect
+  useEffect(() => {
+    const user = authService.getStoredUser();
+    if (user && authService.isAuthenticated()) {
+      console.log(
+        "[Register] User already logged in, redirecting to dashboard"
+      );
+      const redirectPath = getRedirectPath(user.role);
+      navigate(redirectPath, { replace: true });
+    }
+  }, [navigate]);
+
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     // Clear error for this field when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ""
+        [name]: "",
       }));
     }
   };
@@ -75,24 +138,16 @@ const Register = () => {
       newErrors.licenseNumber = "License number is required for QA agencies";
     }
 
+    if (
+      formData.role === "CUSTOMS_OFFICIAL" &&
+      !formData.licenseNumber.trim()
+    ) {
+      newErrors.licenseNumber =
+        "License number is required for Customs Officials";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Get redirect path based on role
-  const getRedirectPath = (role) => {
-    switch (role) {
-      case 'EXPORTER':
-        return '/exporter/dashboard';
-      case 'QA_AGENCY':
-        return '/qa/dashboard';
-      case 'CUSTOMS_OFFICIAL':
-        return '/verify';
-      case 'ADMIN':
-        return '/admin/dashboard';
-      default:
-        return '/';
-    }
   };
 
   // Handle form submission with real API
@@ -115,7 +170,14 @@ const Register = () => {
         companyName: formData.companyName || undefined,
         phoneNumber: formData.phoneNumber || undefined,
         companyAddress: formData.companyAddress || undefined,
-        licenseNumber: formData.role === 'QA_AGENCY' ? formData.licenseNumber : undefined,
+        licenseNumber:
+          formData.role === "QA_AGENCY" || formData.role === "CUSTOMS_OFFICIAL"
+            ? formData.licenseNumber
+            : undefined,
+        businessRegistrationNumber:
+          formData.role === "EXPORTER"
+            ? formData.businessRegistrationNumber
+            : undefined,
       };
 
       // Call the actual registration API
@@ -124,32 +186,35 @@ const Register = () => {
       toast.success("Registration successful — welcome!");
 
       // Redirect based on role
-      const redirectPath = getRedirectPath(response.user?.role || formData.role);
+      const redirectPath = getRedirectPath(
+        response.user?.role || formData.role
+      );
       navigate(redirectPath);
-
     } catch (error) {
       console.error("Registration error:", error);
-      
+
       const status = error.response?.status;
       const message = error.response?.data?.message;
-      
+
       if (status === 409) {
-        setErrors({ email: 'An account with this email already exists' });
-        toast.error('Email already registered');
+        setErrors({ email: "An account with this email already exists" });
+        toast.error("Email already registered");
       } else if (status === 400) {
         const apiErrors = error.response?.data?.errors;
         if (apiErrors?.length > 0) {
           const fieldErrors = {};
-          apiErrors.forEach(err => {
+          apiErrors.forEach((err) => {
             fieldErrors[err.field] = err.message;
           });
           setErrors(fieldErrors);
         } else {
-          setErrors({ submit: message || 'Invalid registration data' });
+          setErrors({ submit: message || "Invalid registration data" });
         }
-        toast.error(message || 'Registration failed');
+        toast.error(message || "Registration failed");
       } else {
-        setErrors({ submit: message || 'Registration failed. Please try again.' });
+        setErrors({
+          submit: message || "Registration failed. Please try again.",
+        });
         handleApiError(error, toast);
       }
     } finally {
@@ -187,25 +252,47 @@ const Register = () => {
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Role Selection */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-4">I want to register as</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-4">
+                I want to register as
+              </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {USER_ROLES.map((roleOption) => {
                   const Icon = roleOption.icon;
                   const isSelected = formData.role === roleOption.value;
                   const colorClasses = {
-                    emerald: { selected: 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20', icon: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-                    blue: { selected: 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20', icon: 'text-blue-600', iconBg: 'bg-blue-100' },
-                    purple: { selected: 'border-purple-500 bg-purple-50 ring-2 ring-purple-500/20', icon: 'text-purple-600', iconBg: 'bg-purple-100' }
+                    emerald: {
+                      selected:
+                        "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20",
+                      icon: "text-emerald-600",
+                      iconBg: "bg-emerald-100",
+                    },
+                    blue: {
+                      selected:
+                        "border-blue-500 bg-blue-50 ring-2 ring-blue-500/20",
+                      icon: "text-blue-600",
+                      iconBg: "bg-blue-100",
+                    },
+                    purple: {
+                      selected:
+                        "border-purple-500 bg-purple-50 ring-2 ring-purple-500/20",
+                      icon: "text-purple-600",
+                      iconBg: "bg-purple-100",
+                    },
                   };
                   const colors = colorClasses[roleOption.color];
-                  
+
                   return (
                     <button
                       key={roleOption.value}
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, role: roleOption.value }))}
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          role: roleOption.value,
+                        }))
+                      }
                       className={`relative p-5 border-2 rounded-2xl transition-all duration-200 ${
-                        isSelected 
+                        isSelected
                           ? colors.selected
                           : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                       }`}
@@ -216,11 +303,17 @@ const Register = () => {
                         </div>
                       )}
                       <div className="text-center">
-                        <div className={`${colors.iconBg} w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-3`}>
+                        <div
+                          className={`${colors.iconBg} w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-3`}
+                        >
                           <Icon className={`h-7 w-7 ${colors.icon}`} />
                         </div>
-                        <span className="font-semibold text-gray-900 block">{roleOption.label}</span>
-                        <span className="text-xs text-gray-500 block mt-1">{roleOption.description}</span>
+                        <span className="font-semibold text-gray-900 block">
+                          {roleOption.label}
+                        </span>
+                        <span className="text-xs text-gray-500 block mt-1">
+                          {roleOption.description}
+                        </span>
                       </div>
                     </button>
                   );
@@ -234,13 +327,18 @@ const Register = () => {
                 <div className="w-full border-t border-gray-200"></div>
               </div>
               <div className="relative flex justify-center">
-                <span className="px-4 bg-white text-gray-500 text-sm">Account Details</span>
+                <span className="px-4 bg-white text-gray-500 text-sm">
+                  Account Details
+                </span>
               </div>
             </div>
 
             {/* Full Name */}
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="fullName"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Full Name <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -251,16 +349,25 @@ const Register = () => {
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
-                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${errors.fullName ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
+                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
+                    errors.fullName
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
                   placeholder="John Doe"
                 />
               </div>
-              {errors.fullName && <p className="mt-2 text-sm text-red-600">{errors.fullName}</p>}
+              {errors.fullName && (
+                <p className="mt-2 text-sm text-red-600">{errors.fullName}</p>
+              )}
             </div>
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Email Address <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -271,16 +378,27 @@ const Register = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${errors.email ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
+                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
+                    errors.email
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
                   placeholder="john@example.com"
                 />
               </div>
-              {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email}</p>}
+              {errors.email && (
+                <p className="mt-2 text-sm text-red-600">{errors.email}</p>
+              )}
             </div>
 
             {/* Phone */}
             <div>
-              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+              <label
+                htmlFor="phoneNumber"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Phone Number
+              </label>
               <div className="relative">
                 <Phone className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
                 <input
@@ -297,7 +415,12 @@ const Register = () => {
 
             {/* Company Name */}
             <div>
-              <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-2">Company/Organization Name</label>
+              <label
+                htmlFor="companyName"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Company/Organization Name
+              </label>
               <div className="relative">
                 <Building className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
                 <input
@@ -315,7 +438,10 @@ const Register = () => {
             {/* QA license (conditional) */}
             {formData.role === "QA_AGENCY" && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-                <label htmlFor="licenseNumber" className="block text-sm font-medium text-blue-900 mb-2">
+                <label
+                  htmlFor="licenseNumber"
+                  className="block text-sm font-medium text-blue-900 mb-2"
+                >
                   QA License Number <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -324,17 +450,92 @@ const Register = () => {
                   name="licenseNumber"
                   value={formData.licenseNumber}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${errors.licenseNumber ? "border-red-400 bg-red-50" : "border-blue-200 hover:border-blue-300 bg-white"}`}
+                  className={`w-full px-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                    errors.licenseNumber
+                      ? "border-red-400 bg-red-50"
+                      : "border-blue-200 hover:border-blue-300 bg-white"
+                  }`}
                   placeholder="QA-12345"
                 />
-                {errors.licenseNumber && <p className="mt-2 text-sm text-red-600">{errors.licenseNumber}</p>}
-                <p className="text-xs text-blue-600 mt-2">Required for QA Agency registration verification</p>
+                {errors.licenseNumber && (
+                  <p className="mt-2 text-sm text-red-600">
+                    {errors.licenseNumber}
+                  </p>
+                )}
+                <p className="text-xs text-blue-600 mt-2">
+                  Required for QA Agency registration verification
+                </p>
+              </div>
+            )}
+
+            {/* Customs Official license (conditional) */}
+            {formData.role === "CUSTOMS_OFFICIAL" && (
+              <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5">
+                <label
+                  htmlFor="licenseNumber"
+                  className="block text-sm font-medium text-purple-900 mb-2"
+                >
+                  Customs License Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="licenseNumber"
+                  name="licenseNumber"
+                  value={formData.licenseNumber}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all ${
+                    errors.licenseNumber
+                      ? "border-red-400 bg-red-50"
+                      : "border-purple-200 hover:border-purple-300 bg-white"
+                  }`}
+                  placeholder="CUST-12345"
+                />
+                {errors.licenseNumber && (
+                  <p className="mt-2 text-sm text-red-600">
+                    {errors.licenseNumber}
+                  </p>
+                )}
+                <p className="text-xs text-purple-600 mt-2">
+                  Required for Customs Official registration verification
+                </p>
+              </div>
+            )}
+
+            {/* Business Registration Number (for Exporters) */}
+            {formData.role === "EXPORTER" && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+                <label
+                  htmlFor="businessRegistrationNumber"
+                  className="block text-sm font-medium text-emerald-900 mb-2"
+                >
+                  Business Registration Number
+                </label>
+                <div className="relative">
+                  <FileText className="absolute left-4 top-3.5 h-5 w-5 text-emerald-500" />
+                  <input
+                    type="text"
+                    id="businessRegistrationNumber"
+                    name="businessRegistrationNumber"
+                    value={formData.businessRegistrationNumber}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3.5 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 hover:border-emerald-300 bg-white transition-all"
+                    placeholder="BRN-12345678"
+                  />
+                </div>
+                <p className="text-xs text-emerald-600 mt-2">
+                  Your official business registration number (optional)
+                </p>
               </div>
             )}
 
             {/* Company Address */}
             <div>
-              <label htmlFor="companyAddress" className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
+              <label
+                htmlFor="companyAddress"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Company Address
+              </label>
               <div className="relative">
                 <MapPin className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
                 <textarea
@@ -353,7 +554,10 @@ const Register = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Password <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -364,7 +568,11 @@ const Register = () => {
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${errors.password ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
+                    className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
+                      errors.password
+                        ? "border-red-400 bg-red-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
                     placeholder="••••••••"
                   />
                   <button
@@ -372,16 +580,27 @@ const Register = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600"
                   >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Minimum 8 characters</p>
-                {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+                <p className="mt-1 text-xs text-gray-500">
+                  Minimum 8 characters
+                </p>
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                )}
               </div>
 
               {/* Confirm Password */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Confirm Password <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -392,7 +611,11 @@ const Register = () => {
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${errors.confirmPassword ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
+                    className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
+                      errors.confirmPassword
+                        ? "border-red-400 bg-red-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
                     placeholder="••••••••"
                   />
                   <button
@@ -400,10 +623,18 @@ const Register = () => {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600"
                   >
-                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
-                {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
+                {errors.confirmPassword && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.confirmPassword}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -418,13 +649,32 @@ const Register = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-4 px-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center shadow-lg ${isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/25"}`}
+              className={`w-full py-4 px-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center shadow-lg ${
+                isLoading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/25"
+              }`}
             >
               {isLoading ? (
                 <>
-                  <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  <svg
+                    className="animate-spin h-5 w-5 mr-2"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
                   </svg>
                   Creating Account...
                 </>
@@ -441,7 +691,12 @@ const Register = () => {
           <div className="mt-8 text-center">
             <p className="text-gray-600">
               Already have an account?{" "}
-              <Link to="/login" className="text-emerald-600 font-semibold hover:text-emerald-700">Login here</Link>
+              <Link
+                to="/login"
+                className="text-emerald-600 font-semibold hover:text-emerald-700"
+              >
+                Login here
+              </Link>
             </p>
           </div>
         </div>
