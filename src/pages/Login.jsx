@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Package, FileCheck, ScanLine } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Package, FileCheck, ScanLine, Leaf, Shield, CheckCircle } from 'lucide-react';
 import toast from "react-hot-toast";
+import authService from '../services/authService';
+import { handleApiError } from '../utils/api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -9,10 +11,26 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    role: 'exporter'
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get redirect path based on user role
+  const getRedirectPath = (role) => {
+    const roleUpper = role?.toUpperCase();
+    switch (roleUpper) {
+      case 'EXPORTER':
+        return '/exporter/dashboard';
+      case 'QA_AGENCY':
+        return '/qa/dashboard';
+      case 'CUSTOMS_OFFICIAL':
+        return '/verify';
+      case 'ADMIN':
+        return '/admin/dashboard';
+      default:
+        return '/';
+    }
+  };
 
   // Handle input changes
   const handleChange = (e) => {
@@ -51,166 +69,128 @@ const Login = () => {
   };
 
   // Handle form submission
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-
-//     if (!validateForm()) {
-//       return;
-//     }
-
-//     setIsLoading(true);
-
-//     try {
-//       // TODO: Replace with actual API call
-//       // const response = await axios.post('/api/auth/login', formData);
-      
-//       // Simulate API call
-//       await new Promise(resolve => setTimeout(resolve, 1500));
-
-//       console.log('Login data:', formData);
-
-//       // Store user data (in real app, this comes from backend)
-//       const userData = {
-//         email: formData.email,
-//         role: formData.role,
-//         name: 'John Doe', // This will come from backend
-//         token: 'fake-jwt-token' // This will come from backend
-//       };
-
-//       // Store in localStorage
-//       localStorage.setItem('user', JSON.stringify(userData));
-
-//       // Redirect based on role
-//       if (formData.role === 'exporter') {
-//         navigate('/exporter/dashboard');
-//       } else if (formData.role === 'qa') {
-//         navigate('/qa/dashboard');
-//       } else if (formData.role === 'verifier') {
-//         navigate('/verify');
-//       }
-
-//     } catch (error) {
-//       console.error('Login error:', error);
-//       setErrors({ submit: 'Invalid credentials. Please try again.' });
-//     } finally {
-//       setIsLoading(false);
-//     }
-//   };
-    // Handle form submission
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
-        return;
+      return;
     }
 
     setIsLoading(true);
 
     try {
-        // TODO: Replace with actual API call
-        // const response = await axios.post('/api/auth/login', formData);
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        console.log('Login data:', formData);
-
-        // Store user data (in real app, this comes from backend)
-        const userData = {
-        name: 'John Doe', // This will come from backend
+      // Call the actual login API
+      const response = await authService.login({
         email: formData.email,
-        role: formData.role,
-        token: 'fake-jwt-token' // This will come from backend
-        };
+        password: formData.password,
+      });
 
-        // Store in localStorage
-        localStorage.setItem('user', JSON.stringify(userData));
+      // Success notification
+      toast.success('Login successful!');
 
-        // Toast success notification
-        toast.success('Login successful!');
-
-        // Redirect based on role
-        if (formData.role === 'exporter') {
-        navigate('/exporter/dashboard');
-        } else if (formData.role === 'qa') {
-        navigate('/qa/dashboard');
-        } else if (formData.role === 'verifier') {
-        navigate('/verify');
-        }
+      // Redirect based on role from response
+      const redirectPath = getRedirectPath(response.user?.role);
+      navigate(redirectPath);
 
     } catch (error) {
-        console.error('Login error:', error);
-        setErrors({ submit: 'Invalid credentials. Please try again.' });
-        toast.error('Login failed!');
+      console.error('Login error:', error);
+      
+      // Handle specific error cases
+      const status = error.response?.status;
+      const message = error.response?.data?.message;
+      
+      if (status === 401) {
+        setErrors({ submit: 'Invalid email or password. Please try again.' });
+        toast.error('Invalid credentials');
+      } else if (status === 400) {
+        // Validation errors from backend
+        const apiErrors = error.response?.data?.errors;
+        if (apiErrors?.length > 0) {
+          const fieldErrors = {};
+          apiErrors.forEach(err => {
+            fieldErrors[err.field] = err.message;
+          });
+          setErrors(fieldErrors);
+        } else {
+          setErrors({ submit: message || 'Invalid request. Please check your input.' });
+        }
+        toast.error(message || 'Login failed');
+      } else {
+        setErrors({ submit: message || 'An error occurred. Please try again.' });
+        handleApiError(error, toast);
+      }
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-    };
-
-  // Demo credentials info
-  const demoCredentials = {
-    exporter: { email: 'exporter@demo.com', password: 'demo123' },
-    qa: { email: 'qa@demo.com', password: 'demo123' },
-    verifier: { email: 'verifier@demo.com', password: 'demo123' }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-teal-500/20 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Left Side - Info Section */}
-        <div className="hidden lg:flex flex-col justify-center text-white bg-gradient-to-br from-green-600 to-green-800 rounded-lg p-8 shadow-xl">
-          <div className="mb-8">
-            <div className="flex items-center space-x-2 mb-4">
-              <Package className="h-10 w-10" />
-              <span className="font-bold text-3xl">AgriQCert</span>
+        <div className="hidden lg:flex flex-col justify-center">
+          <div className="mb-10">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-3 rounded-2xl">
+                <Leaf className="h-10 w-10 text-white" />
+              </div>
+              <span className="font-bold text-4xl text-white">AgriQCert</span>
             </div>
-            <p className="text-green-100 text-lg">
-              Secure digital certification for agricultural imports and exports
+            <p className="text-emerald-200 text-xl leading-relaxed">
+              Secure digital certification for agricultural imports and exports worldwide
             </p>
           </div>
 
           <div className="space-y-6">
-            <div className="flex items-start space-x-3">
-              <div className="bg-green-500 rounded-full p-2 mt-1">
-                <Package className="h-5 w-5" />
+            {[
+              { icon: Package, title: 'For Exporters', desc: 'Submit batches, track inspections, and receive digital certificates' },
+              { icon: FileCheck, title: 'For QA Agencies', desc: 'Conduct inspections and issue verifiable quality credentials' },
+              { icon: ScanLine, title: 'For Customs Officials', desc: 'Instantly verify certificates using QR codes at checkpoints' }
+            ].map((item, i) => (
+              <div key={i} className="flex items-start space-x-4 bg-white/5 backdrop-blur-sm rounded-2xl p-5 border border-white/10">
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl p-3 shadow-lg">
+                  <item.icon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-white mb-1">{item.title}</h3>
+                  <p className="text-emerald-200/80 text-sm">{item.desc}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">For Exporters</h3>
-                <p className="text-green-100 text-sm">
-                  Submit batches, track inspections, and receive digital certificates
-                </p>
-              </div>
-            </div>
+            ))}
+          </div>
 
-            <div className="flex items-start space-x-3">
-              <div className="bg-green-500 rounded-full p-2 mt-1">
-                <FileCheck className="h-5 w-5" />
+          {/* Trust Indicators */}
+          <div className="mt-10 pt-8 border-t border-white/10">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Shield className="h-5 w-5" />
+                <span className="text-sm">Blockchain Secured</span>
               </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">For QA Agencies</h3>
-                <p className="text-green-100 text-sm">
-                  Conduct inspections and issue verifiable quality certificates
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="bg-green-500 rounded-full p-2 mt-1">
-                <ScanLine className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">For Verifiers</h3>
-                <p className="text-green-100 text-sm">
-                  Instantly verify certificates using QR codes
-                </p>
+              <div className="flex items-center gap-2 text-emerald-300">
+                <CheckCircle className="h-5 w-5" />
+                <span className="text-sm">W3C Compliant</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="bg-white rounded-lg shadow-xl p-8">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 lg:p-10">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-2 rounded-xl">
+              <Leaf className="h-8 w-8 text-white" />
+            </div>
+            <span className="font-bold text-2xl text-gray-900">AgriQCert</span>
+          </div>
+
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
               Welcome Back
@@ -221,53 +201,6 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Role Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Login As
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, role: 'exporter' }))}
-                  className={`p-3 border-2 rounded-lg transition-all ${
-                    formData.role === 'exporter'
-                      ? 'border-green-600 bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <Package className="h-6 w-6 mx-auto mb-1 text-green-600" />
-                  <span className="text-xs font-semibold block">Exporter</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, role: 'qa' }))}
-                  className={`p-3 border-2 rounded-lg transition-all ${
-                    formData.role === 'qa'
-                      ? 'border-green-600 bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <FileCheck className="h-6 w-6 mx-auto mb-1 text-green-600" />
-                  <span className="text-xs font-semibold block">QA Agency</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, role: 'verifier' }))}
-                  className={`p-3 border-2 rounded-lg transition-all ${
-                    formData.role === 'verifier'
-                      ? 'border-green-600 bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <ScanLine className="h-6 w-6 mx-auto mb-1 text-green-600" />
-                  <span className="text-xs font-semibold block">Verifier</span>
-                </button>
-              </div>
-            </div>
 
             {/* Email */}
             <div>
@@ -275,21 +208,24 @@ const Login = () => {
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Mail className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
                 <input
                   type="email"
                   id="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.email ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full pl-12 pr-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
+                    errors.email ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                   placeholder="your@email.com"
                 />
               </div>
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <span className="inline-block w-1 h-1 bg-red-600 rounded-full"></span>
+                  {errors.email}
+                </p>
               )}
             </div>
 
@@ -299,28 +235,31 @@ const Login = () => {
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-12 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.password ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full pl-12 pr-12 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
+                    errors.password ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                  className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <span className="inline-block w-1 h-1 bg-red-600 rounded-full"></span>
+                  {errors.password}
+                </p>
               )}
             </div>
 
@@ -330,20 +269,20 @@ const Login = () => {
                 <input
                   id="remember"
                   type="checkbox"
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
                 />
                 <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
                   Remember me
                 </label>
               </div>
-              <Link to="/forgot-password" className="text-sm text-green-600 hover:text-green-700 font-medium">
+              <Link to="/forgot-password" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
                 Forgot password?
               </Link>
             </div>
 
             {/* Submit Error */}
             {errors.submit && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
                 <p className="text-sm text-red-600">{errors.submit}</p>
               </div>
             )}
@@ -352,10 +291,10 @@ const Login = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-colors flex items-center justify-center ${
+              className={`w-full py-4 px-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center shadow-lg ${
                 isLoading
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
+                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/25'
               }`}
             >
               {isLoading ? (
@@ -375,24 +314,24 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm font-semibold text-blue-900 mb-2">Demo Credentials:</p>
-            <div className="text-xs text-blue-800 space-y-1">
-              <p><strong>Exporter:</strong> {demoCredentials.exporter.email} / {demoCredentials.exporter.password}</p>
-              <p><strong>QA:</strong> {demoCredentials.qa.email} / {demoCredentials.qa.password}</p>
-              <p><strong>Verifier:</strong> {demoCredentials.verifier.email} / {demoCredentials.verifier.password}</p>
+          {/* Divider */}
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white text-gray-500">New to AgriQCert?</span>
             </div>
           </div>
 
           {/* Register Link */}
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-green-600 font-semibold hover:text-green-700">
-                Register here
-              </Link>
-            </p>
+          <div className="text-center">
+            <Link 
+              to="/register" 
+              className="inline-flex items-center justify-center w-full py-3.5 px-4 border-2 border-emerald-500 text-emerald-600 font-semibold rounded-xl hover:bg-emerald-50 transition-all"
+            >
+              Create an Account
+            </Link>
           </div>
         </div>
       </div>

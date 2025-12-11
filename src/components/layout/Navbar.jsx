@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Menu, X, User, LogOut, Package, FileCheck, ScanLine, ChevronDown, Home, Info, Shield } from 'lucide-react';
+import authService from '../../services/authService';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -11,14 +12,12 @@ const Navbar = () => {
 
   // Check if user is logged in (from localStorage)
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
+    const userData = authService.getStoredUser();
+    setUser(userData);
   }, [location]);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    authService.logout();
     setUser(null);
     setIsDropdownOpen(false);
     navigate('/login');
@@ -26,6 +25,28 @@ const Navbar = () => {
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
+  };
+
+  // Get role display name
+  const getRoleDisplayName = (role) => {
+    const roleMap = {
+      'EXPORTER': '📦 Exporter',
+      'QA_AGENCY': '✓ QA Agency',
+      'CUSTOMS_OFFICIAL': '🔍 Customs Official',
+      'ADMIN': '⚙️ Admin'
+    };
+    return roleMap[role?.toUpperCase()] || role;
+  };
+
+  // Get role badge color
+  const getRoleBadgeClass = (role) => {
+    const colorMap = {
+      'EXPORTER': 'bg-blue-100 text-blue-800',
+      'QA_AGENCY': 'bg-purple-100 text-purple-800',
+      'CUSTOMS_OFFICIAL': 'bg-emerald-100 text-emerald-800',
+      'ADMIN': 'bg-red-100 text-red-800'
+    };
+    return colorMap[role?.toUpperCase()] || 'bg-gray-100 text-gray-800';
   };
 
   // Navigation based on authentication and role
@@ -39,25 +60,30 @@ const Navbar = () => {
       ];
     }
 
-    // Logged in navigation based on role
+    // Logged in navigation based on role (using uppercase role names)
     const roleNavigation = {
-      exporter: [
+      EXPORTER: [
         { name: 'Dashboard', path: '/exporter/dashboard', icon: Package },
         { name: 'Submit Batch', path: '/exporter/submit-batch', icon: FileCheck },
         { name: 'My Batches', path: '/exporter/batches', icon: Package }
       ],
-      qa: [
+      QA_AGENCY: [
         { name: 'Dashboard', path: '/qa/dashboard', icon: FileCheck },
         { name: 'Pending Inspections', path: '/qa/pending-inspections', icon: ScanLine },
         { name: 'History', path: '/qa/history', icon: Package }
       ],
-      verifier: [
+      CUSTOMS_OFFICIAL: [
         { name: 'Verify Portal', path: '/verify', icon: Shield },
         { name: 'Scan QR', path: '/verify/scan', icon: ScanLine }
+      ],
+      ADMIN: [
+        { name: 'Dashboard', path: '/admin/dashboard', icon: Package },
+        { name: 'All Batches', path: '/admin/batches', icon: Package },
+        { name: 'Verify', path: '/verify', icon: Shield }
       ]
     };
 
-    return roleNavigation[user.role] || [];
+    return roleNavigation[user.role?.toUpperCase()] || [];
   };
 
   const navLinks = getNavLinks();
@@ -127,16 +153,11 @@ const Navbar = () => {
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl py-2 text-gray-700 border border-gray-100">
                       <div className="px-4 py-3 border-b border-gray-200">
                         <p className="text-sm font-semibold text-gray-900">
-                          {user.name || 'User'}
+                          {user.fullName || user.name || 'User'}
                         </p>
                         <p className="text-xs text-gray-500 mb-2">{user.email}</p>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                          user.role === 'exporter' ? 'bg-blue-100 text-blue-800' :
-                          user.role === 'qa' ? 'bg-purple-100 text-purple-800' :
-                          'bg-emerald-100 text-emerald-800'
-                        }`}>
-                          {user.role === 'exporter' ? '📦 Exporter' :
-                           user.role === 'qa' ? '✓ QA Agency' : '🔍 Verifier'}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full ${getRoleBadgeClass(user.role)}`}>
+                          {getRoleDisplayName(user.role)}
                         </span>
                       </div>
                       <Link
@@ -214,15 +235,10 @@ const Navbar = () => {
             {user ? (
               <>
                 <div className="px-3 py-3 border-t border-emerald-700 mt-2 pt-3">
-                  <p className="text-sm font-semibold">{user.name || user.email?.split('@')[0]}</p>
+                  <p className="text-sm font-semibold">{user.fullName || user.name || user.email?.split('@')[0]}</p>
                   <p className="text-xs text-emerald-300">{user.email}</p>
-                  <span className={`inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full ${
-                    user.role === 'exporter' ? 'bg-blue-900 text-blue-200' :
-                    user.role === 'qa' ? 'bg-purple-900 text-purple-200' :
-                    'bg-emerald-700 text-emerald-200'
-                  }`}>
-                    {user.role === 'exporter' ? 'Exporter' :
-                     user.role === 'qa' ? 'QA Agency' : 'Verifier'}
+                  <span className={`inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeClass(user.role)}`}>
+                    {getRoleDisplayName(user.role)}
                   </span>
                 </div>
                 <Link

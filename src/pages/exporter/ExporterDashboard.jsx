@@ -271,175 +271,277 @@
 // src/pages/exporter/ExporterDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Package, FilePlus, DownloadCloud, Eye } from "lucide-react";
-import { getBatches } from "../../utils/batches";
+import { Package, FilePlus, DownloadCloud, Eye, AlertCircle, Clock, CheckCircle, XCircle, RefreshCw, TrendingUp, ArrowRight, Leaf } from "lucide-react";
+import { batchService, dashboardService, credentialService, BATCH_STATUS_CONFIG } from "../../services";
+import toast from "react-hot-toast";
 
 export default function ExporterDashboard() {
   const navigate = useNavigate();
-  const [batches, setBatches] = useState(() => getBatches());
+  const [stats, setStats] = useState({
+    totalBatches: 0,
+    submittedBatches: 0,
+    underInspection: 0,
+    certifiedBatches: 0,
+    rejectedBatches: 0
+  });
+  const [recentBatches, setRecentBatches] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // recompute when localStorage changes (other tab or after submit)
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Fetch dashboard stats
+      const dashboardStats = await dashboardService.getExporterDashboard();
+      setStats({
+        totalBatches: dashboardStats.totalBatches || 0,
+        submittedBatches: dashboardStats.submittedBatches || 0,
+        underInspection: dashboardStats.underInspectionBatches || 0,
+        certifiedBatches: dashboardStats.certifiedBatches || 0,
+        rejectedBatches: dashboardStats.rejectedBatches || 0
+      });
+
+      // Fetch recent batches
+      const batchesResponse = await batchService.getMyBatches({ page: 0, size: 5, sortBy: 'createdAt', sortDir: 'desc' });
+      setRecentBatches(batchesResponse.content || []);
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+      setError(err.message || 'Failed to load dashboard data');
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === "batches_v1") {
-        setBatches(getBatches());
+    fetchDashboardData();
+  }, []);
+
+  const getStatusBadge = (status) => {
+    const config = BATCH_STATUS_CONFIG[status] || { color: 'bg-gray-100 text-gray-800', label: status };
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${config.color}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const handleDownloadQR = async (batchId) => {
+    try {
+      // First get credential by batch ID
+      const credential = await credentialService.getCredentialByBatchId(batchId);
+      if (credential?.id) {
+        await credentialService.downloadQRCode(credential.id);
+        toast.success('QR Code downloaded');
+      } else {
+        toast.error('No credential found for this batch');
       }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+    } catch (err) {
+      console.error('Failed to download QR:', err);
+      toast.error('Failed to download QR code');
+    }
+  };
 
-  // also update when component mounts (in case submit redirected here)
-  useEffect(() => {
-    setBatches(getBatches());
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center bg-gradient-to-br from-slate-50 to-emerald-50">
+        <div className="text-center">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-emerald-200 rounded-full animate-pulse"></div>
+            <div className="absolute top-0 left-0 w-20 h-20 border-4 border-emerald-600 rounded-full animate-spin border-t-transparent"></div>
+          </div>
+          <p className="mt-6 text-gray-600 font-medium">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // stat calculations
-  const total = batches.length;
-  const certified = batches.filter(b => (b.status || "").toLowerCase() === "certified").length;
-  const rejected = batches.filter(b => (b.status || "").toLowerCase() === "rejected").length;
-  const underInspection = batches.filter(b => {
-    const s = (b.status || "").toLowerCase();
-    return s === "under inspection" || s === "submitted" || s === "pending";
-  }).length;
-
-  // recent list (top 5)
-  const recent = batches.slice(0, 5);
+  if (error) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 text-center">
+          <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="h-10 w-10 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Failed to Load Dashboard</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={fetchDashboardData}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-semibold hover:from-red-600 hover:to-rose-600 shadow-lg"
+          >
+            <RefreshCw className="h-5 w-5" /> Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold">Exporter Dashboard</h1>
-          <p className="mt-2 text-gray-600">Manage your product batches and certifications</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-slate-50">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-emerald-800 to-teal-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-white/10 backdrop-blur p-2 rounded-xl">
+                  <Leaf className="h-6 w-6 text-emerald-300" />
+                </div>
+                <span className="text-emerald-300 font-medium">Exporter Portal</span>
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold">Dashboard</h1>
+              <p className="mt-2 text-emerald-100">Manage your product batches and certifications</p>
+            </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/exporter/submit-batch")}
-            className="inline-flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700"
-          >
-            <FilePlus className="h-4 w-4" /> Submit Batch
-          </button>
-          <Link to="/exporter/batches" className="inline-flex items-center gap-2 px-4 py-2 rounded border border-gray-200 hover:bg-gray-50">
-            My Batches
-          </Link>
-        </div>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg p-5 shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Total Batches</p>
-            <p className="text-2xl font-semibold">{total}</p>
-          </div>
-          <div className="bg-emerald-50 p-3 rounded">
-            <Package className="h-6 w-6 text-emerald-600" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-5 shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Under Inspection</p>
-            <p className="text-2xl font-semibold">{underInspection}</p>
-          </div>
-          <div className="bg-yellow-50 p-3 rounded">
-            <svg className="h-6 w-6 text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-5 shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Certified</p>
-            <p className="text-2xl font-semibold">{certified}</p>
-          </div>
-          <div className="bg-emerald-50 p-3 rounded">
-            <svg className="h-6 w-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6L9 17l-5-5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-5 shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Rejected</p>
-            <p className="text-2xl font-semibold">{rejected}</p>
-          </div>
-          <div className="bg-red-50 p-3 rounded">
-            <svg className="h-6 w-6 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6L6 18M6 6l12 12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchDashboardData}
+                className="p-3 bg-white/10 backdrop-blur rounded-xl hover:bg-white/20 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => navigate("/exporter/submit-batch")}
+                className="inline-flex items-center gap-2 bg-white text-emerald-800 px-6 py-3 rounded-xl font-semibold hover:bg-emerald-50 transition-colors shadow-lg"
+              >
+                <FilePlus className="h-5 w-5" /> Submit Batch
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* CTA */}
-      <div className="bg-emerald-700 text-white rounded-lg p-6 mb-8 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Submit New Batch</h2>
-          <p className="mt-1 text-emerald-100">Upload product details and request quality inspection</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 pb-12">
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[
+            { label: 'Total Batches', value: stats.totalBatches, icon: Package, color: 'blue', gradient: 'from-blue-500 to-indigo-500' },
+            { label: 'Under Inspection', value: stats.underInspection, icon: Clock, color: 'amber', gradient: 'from-amber-500 to-orange-500' },
+            { label: 'Certified', value: stats.certifiedBatches, icon: CheckCircle, color: 'emerald', gradient: 'from-emerald-500 to-teal-500' },
+            { label: 'Rejected', value: stats.rejectedBatches, icon: XCircle, color: 'red', gradient: 'from-red-500 to-rose-500' }
+          ].map((stat, i) => (
+            <div key={i} className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow border border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                </div>
+                <div className={`bg-gradient-to-br ${stat.gradient} p-4 rounded-xl shadow-lg`}>
+                  <stat.icon className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-        <div>
-          <button onClick={() => navigate("/exporter/submit-batch")} className="bg-white text-emerald-800 px-4 py-2 rounded font-semibold hover:bg-gray-100 inline-flex items-center gap-2">
-            <FilePlus /> Submit Batch
-          </button>
+
+        {/* CTA */}
+        <div className="bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 text-white rounded-3xl p-8 mb-8 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+          
+          <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">Ready to Submit a New Batch?</h2>
+              <p className="text-emerald-100 max-w-lg">Upload product details, documentation, and request quality inspection from certified agencies.</p>
+            </div>
+            <button 
+              onClick={() => navigate("/exporter/submit-batch")} 
+              className="flex-shrink-0 bg-white text-emerald-700 px-8 py-4 rounded-xl font-bold hover:bg-emerald-50 inline-flex items-center gap-2 shadow-lg transition-all hover:scale-105"
+            >
+              <FilePlus className="h-5 w-5" /> Submit Batch <ArrowRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Recent batches */}
-      <div className="bg-white rounded shadow overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="text-lg font-semibold">Recent Batches</h3>
-          <Link to="/exporter/batches" className="text-green-600 font-medium">View All</Link>
+        {/* Recent batches */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+          <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-gray-50 to-white">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 p-2 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Recent Batches</h3>
+            </div>
+            <Link 
+              to="/exporter/batches" 
+              className="inline-flex items-center gap-1 text-emerald-600 font-medium hover:text-emerald-700 group"
+            >
+              View All <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-gray-50/50">
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch Number</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Type</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Quantity</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Destination</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-100">
+                {recentBatches.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center">
+                        <div className="bg-gray-100 p-4 rounded-full mb-4">
+                          <Package className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <p className="text-gray-500 mb-2">No batches submitted yet</p>
+                        <Link 
+                          to="/exporter/submit-batch" 
+                          className="text-emerald-600 font-medium hover:text-emerald-700 inline-flex items-center gap-1"
+                        >
+                          Submit your first batch <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+                {recentBatches.map(batch => (
+                  <tr key={batch.id} className="hover:bg-emerald-50/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-gray-900">{batch.batchNumber}</span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-700">{batch.productType}</td>
+                    <td className="px-6 py-4 text-gray-700">{batch.quantity} {batch.unit}</td>
+                    <td className="px-6 py-4 text-gray-700">{batch.destinationCountry}</td>
+                    <td className="px-6 py-4 text-gray-500 text-sm">{new Date(batch.createdAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-4">{getStatusBadge(batch.status)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <Link 
+                          to={`/exporter/certificate/${batch.id}`} 
+                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                          title="View Details"
+                        >
+                          <Eye className="h-5 w-5" />
+                        </Link>
+                        {batch.status === 'CERTIFIED' && (
+                          <button 
+                            onClick={() => handleDownloadQR(batch.id)} 
+                            className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" 
+                            title="Download QR Code"
+                          >
+                            <DownloadCloud className="h-5 w-5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Batch ID</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Product Type</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Quantity</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Destination</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Submitted Date</th>
-              <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Status</th>
-              <th className="px-6 py-3 text-sm font-medium text-gray-500">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {recent.length === 0 && (
-              <tr>
-                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">No recent batches.</td>
-              </tr>
-            )}
-
-            {recent.map(b => (
-              <tr key={b.batchId} className="border-t">
-                <td className="px-6 py-4 font-semibold">{b.batchId}</td>
-                <td className="px-6 py-4">{b.productType}</td>
-                <td className="px-6 py-4">{b.quantity}</td>
-                <td className="px-6 py-4">{b.destination}</td>
-                <td className="px-6 py-4">{new Date(b.createdAt).toLocaleDateString()}</td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
-                    (b.status || "").toLowerCase() === "certified" ? "bg-emerald-50 text-emerald-800" :
-                    (b.status || "").toLowerCase() === "rejected" ? "bg-red-50 text-red-800" :
-                    "bg-yellow-50 text-yellow-800"
-                  }`}>
-                    {b.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <Link to={`/exporter/certificate/${b.batchId}`} className="text-blue-600" title="View">
-                      <Eye />
-                    </Link>
-                    <button className="text-green-600" title="Download (placeholder)">
-                      <DownloadCloud />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </div>
   );

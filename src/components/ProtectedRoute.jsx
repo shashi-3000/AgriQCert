@@ -3,17 +3,25 @@ import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 
 /**
+ * ProtectedRoute Component
+ * 
+ * Protects routes based on authentication and role-based access control.
+ * 
  * Usage in App.jsx:
- * <Route element={<ProtectedRoute allowedRoles={['exporter']} />}>
+ * <Route element={<ProtectedRoute allowedRoles={['EXPORTER']} />}>
  *   <Route path="/exporter/dashboard" element={<ExporterDashboard />} />
  * </Route>
  *
- * allowedRoles is case-insensitive and accepts values like 'exporter', 'qa', 'verifier'
+ * Backend Roles: EXPORTER, QA_AGENCY, CUSTOMS_OFFICIAL, ADMIN
  */
 
-const normalize = (s) => (typeof s === "string" ? s.toLowerCase() : "");
+const normalize = (s) => (typeof s === "string" ? s.toUpperCase() : "");
 
 export default function ProtectedRoute({ allowedRoles = [] }) {
+  // Check for access token (primary authentication check)
+  const accessToken = localStorage.getItem("accessToken");
+  
+  // Get user data
   let user = null;
   try {
     const raw = localStorage.getItem("user");
@@ -22,19 +30,21 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
     user = null;
   }
 
-  if (!user) {
-    // not logged-in -> go to login
+  // Not authenticated - redirect to login
+  if (!accessToken || !user) {
     return <Navigate to="/login" replace />;
   }
 
+  // No role restriction - allow any authenticated user
   if (!allowedRoles || allowedRoles.length === 0) {
     return <Outlet />;
   }
 
-  const role = normalize(user.role);
+  // Check role-based access
+  const userRole = normalize(user.role);
   const allowed = allowedRoles.map(normalize);
 
-  if (!allowed.includes(role)) {
+  if (!allowed.includes(userRole)) {
     return <Navigate to="/unauthorised" replace />;
   }
 

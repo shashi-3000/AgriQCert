@@ -1,156 +1,282 @@
 // src/pages/qa/QADashboard.jsx
 import React, { useEffect, useState } from "react";
-import { getBatches } from "../../utils/batches";
 import { Link } from "react-router-dom";
-import { ClipboardList, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ClipboardList, CheckCircle, XCircle, Clock, RefreshCw, AlertCircle, TrendingUp, Calendar, Shield, ArrowRight } from "lucide-react";
+import { dashboardService, inspectionService, batchService, INSPECTION_STATUS_CONFIG } from "../../services";
+import toast from "react-hot-toast";
 
 export default function QADashboard() {
   const [stats, setStats] = useState({
-    pending: 0,
-    certified: 0,
-    rejected: 0
+    pendingInspections: 0,
+    completedInspections: 0,
+    passedInspections: 0,
+    failedInspections: 0
   });
+  const [recentInspections, setRecentInspections] = useState([]);
+  const [pendingBatches, setPendingBatches] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [recent, setRecent] = useState([]);
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch QA dashboard stats
+      const dashboardStats = await dashboardService.getQADashboard();
+      setStats({
+        pendingInspections: dashboardStats.pendingInspections || 0,
+        completedInspections: dashboardStats.completedInspections || 0,
+        passedInspections: dashboardStats.passedInspections || 0,
+        failedInspections: dashboardStats.failedInspections || 0
+      });
+
+      // Fetch pending batches for inspection
+      try {
+        const pending = await batchService.getPendingBatches({ page: 0, size: 5 });
+        setPendingBatches(pending.content || pending || []);
+      } catch (e) {
+        console.log('Could not fetch pending batches:', e);
+      }
+
+      // Fetch recent inspections
+      try {
+        const inspections = await inspectionService.getAllInspections({ page: 0, size: 5, sortBy: 'createdAt', sortDir: 'desc' });
+        setRecentInspections(inspections.content || inspections || []);
+      } catch (e) {
+        console.log('Could not fetch inspections:', e);
+      }
+    } catch (err) {
+      console.error('Failed to fetch QA dashboard:', err);
+      setError(err.message || 'Failed to load dashboard data');
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const batches = getBatches();
-    const statsObj = {
-      pending: batches.filter(b => (b.status || "").toLowerCase() === "submitted").length,
-      certified: batches.filter(b => (b.status || "").toLowerCase() === "certified").length,
-      rejected: batches.filter(b => (b.status || "").toLowerCase() === "rejected").length
-    };
-
-    setStats(statsObj);
-
-    // show recent 5 inspections (any batch with inspections array)
-    const inspected = batches
-      .filter(b => Array.isArray(b.inspections) && b.inspections.length > 0)
-      .sort((a, b) => new Date(b.inspections[0].inspectedAt) - new Date(a.inspections[0].inspectedAt))
-      .slice(0, 5);
-
-    setRecent(inspected);
+    fetchDashboardData();
   }, []);
 
+  const getResultBadge = (result) => {
+    if (result === 'PASS') {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-700">
+          <CheckCircle className="h-4 w-4" /> Pass
+        </span>
+      );
+    } else if (result === 'FAIL') {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-700">
+          <XCircle className="h-4 w-4" /> Fail
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+        <Clock className="h-4 w-4" /> {result || 'Pending'}
+      </span>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="text-center">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-blue-200 rounded-full animate-pulse"></div>
+            <div className="absolute top-0 left-0 w-20 h-20 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div>
+          </div>
+          <p className="mt-6 text-gray-600 font-medium">Loading QA dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 text-center">
+          <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="h-10 w-10 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Failed to Load Dashboard</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button 
+            onClick={fetchDashboardData} 
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-semibold hover:from-red-600 hover:to-rose-600 shadow-lg"
+          >
+            <RefreshCw className="h-5 w-5" /> Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-6 py-10">
-      <h1 className="text-3xl font-bold mb-2">QA Dashboard</h1>
-      <p className="text-gray-600 mb-8">Quality Assurance overview and inspection activity</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-800 to-indigo-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-white/10 backdrop-blur p-2 rounded-xl">
+                  <Shield className="h-6 w-6 text-blue-300" />
+                </div>
+                <span className="text-blue-300 font-medium">QA Agency Portal</span>
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold">Quality Assurance Dashboard</h1>
+              <p className="mt-2 text-blue-100">Overview of inspections and quality control activity</p>
+            </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        
-        {/* Pending */}
-        <div className="bg-white p-6 rounded-lg shadow flex items-center gap-4">
-          <div className="p-3 bg-yellow-100 rounded-lg">
-            <Clock className="h-7 w-7 text-yellow-600" />
-          </div>
-          <div>
-            <p className="text-gray-600">Pending Inspections</p>
-            <p className="text-3xl font-semibold">{stats.pending}</p>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={fetchDashboardData} 
+                className="p-3 bg-white/10 backdrop-blur rounded-xl hover:bg-white/20 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
+              <Link
+                to="/qa/pending-inspections"
+                className="inline-flex items-center gap-2 bg-white text-blue-800 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-colors shadow-lg"
+              >
+                <ClipboardList className="h-5 w-5" /> View Pending
+              </Link>
+            </div>
           </div>
         </div>
-
-        {/* Certified */}
-        <div className="bg-white p-6 rounded-lg shadow flex items-center gap-4">
-          <div className="p-3 bg-green-100 rounded-lg">
-            <CheckCircle className="h-7 w-7 text-green-600" />
-          </div>
-          <div>
-            <p className="text-gray-600">Certified Batches</p>
-            <p className="text-3xl font-semibold">{stats.certified}</p>
-          </div>
-        </div>
-
-        {/* Rejected */}
-        <div className="bg-white p-6 rounded-lg shadow flex items-center gap-4">
-          <div className="p-3 bg-red-100 rounded-lg">
-            <XCircle className="h-7 w-7 text-red-600" />
-          </div>
-          <div>
-            <p className="text-gray-600">Rejected Batches</p>
-            <p className="text-3xl font-semibold">{stats.rejected}</p>
-          </div>
-        </div>
-
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-4 mb-10">
-        <Link
-          to="/qa/pending-inspections"
-          className="px-6 py-3 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 inline-flex items-center gap-2"
-        >
-          <ClipboardList className="h-5 w-5" />
-          Pending Inspections
-        </Link>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 pb-12">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          {[
+            { label: 'Pending Inspections', value: stats.pendingInspections, icon: Clock, gradient: 'from-amber-500 to-orange-500' },
+            { label: 'Total Completed', value: stats.completedInspections, icon: TrendingUp, gradient: 'from-blue-500 to-indigo-500' },
+            { label: 'Passed', value: stats.passedInspections, icon: CheckCircle, gradient: 'from-emerald-500 to-teal-500' },
+            { label: 'Failed', value: stats.failedInspections, icon: XCircle, gradient: 'from-red-500 to-rose-500' }
+          ].map((stat, i) => (
+            <div key={i} className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow border border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                </div>
+                <div className={`bg-gradient-to-br ${stat.gradient} p-4 rounded-xl shadow-lg`}>
+                  <stat.icon className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <Link
-          to="/qa/history"
-          className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg shadow hover:bg-gray-300 inline-flex items-center gap-2"
-        >
-          Inspection History
-        </Link>
-      </div>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-4 mb-10">
+          <Link
+            to="/qa/pending-inspections"
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg hover:from-blue-700 hover:to-indigo-700 inline-flex items-center gap-2 font-semibold"
+          >
+            <ClipboardList className="h-5 w-5" />
+            Pending Inspections ({stats.pendingInspections})
+          </Link>
+          <Link
+            to="/qa/history"
+            className="px-6 py-3 bg-white text-gray-700 rounded-xl shadow-lg hover:bg-gray-50 inline-flex items-center gap-2 font-semibold border border-gray-200"
+          >
+            <Calendar className="h-5 w-5" />
+            Inspection History
+          </Link>
+        </div>
 
-      {/* Recent Inspections */}
-      <h2 className="text-xl font-semibold mb-4">Recent Inspections</h2>
-
-      <div className="bg-white rounded shadow overflow-hidden">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm text-gray-500">Batch ID</th>
-              <th className="px-6 py-3 text-left text-sm text-gray-500">Product</th>
-              <th className="px-6 py-3 text-left text-sm text-gray-500">Verdict</th>
-              <th className="px-6 py-3 text-left text-sm text-gray-500">Inspector</th>
-              <th className="px-6 py-3 text-left text-sm text-gray-500">Date</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {recent.length === 0 && (
-              <tr>
-                <td colSpan="5" className="px-6 py-6 text-center text-gray-500">
-                  No inspections conducted yet.
-                </td>
-              </tr>
-            )}
-
-            {recent.map(b => {
-              const last = b.inspections[0]; // latest inspection
-              return (
-                <tr key={b.batchId} className="border-t">
-                  <td className="px-6 py-4 font-semibold">{b.batchId}</td>
-                  <td className="px-6 py-4">{b.productName}</td>
-
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        last.verdict === "Pass"
-                          ? "bg-green-50 text-green-700"
-                          : "bg-red-50 text-red-700"
-                      }`}
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Pending Batches */}
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+            <div className="px-6 py-5 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-100 p-2 rounded-lg">
+                  <Clock className="h-5 w-5 text-amber-600" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Batches Awaiting Inspection</h2>
+              </div>
+              <Link 
+                to="/qa/pending-inspections" 
+                className="text-amber-600 text-sm font-medium hover:text-amber-700 inline-flex items-center gap-1 group"
+              >
+                View All <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+            <div className="divide-y">
+              {pendingBatches.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500">No batches pending inspection</p>
+                </div>
+              ) : (
+                pendingBatches.slice(0, 5).map(batch => (
+                  <div key={batch.id} className="px-6 py-4 hover:bg-amber-50/50 flex items-center justify-between transition-colors">
+                    <div>
+                      <p className="font-semibold text-gray-900">{batch.batchNumber}</p>
+                      <p className="text-sm text-gray-500">{batch.productType} • {batch.quantity} {batch.unit}</p>
+                    </div>
+                    <Link 
+                      to={`/qa/inspection/${batch.id}`}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 shadow transition-all"
                     >
-                      {last.verdict}
-                    </span>
-                  </td>
+                      Inspect
+                    </Link>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
-                  <td className="px-6 py-4">
-                    {last.inspector || "—"}
-                  </td>
-
-                  <td className="px-6 py-4">
-                    {new Date(last.inspectedAt).toLocaleString()}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-
-        </table>
+          {/* Recent Inspections */}
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+            <div className="px-6 py-5 border-b bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <ClipboardList className="h-5 w-5 text-blue-600" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Recent Inspections</h2>
+              </div>
+              <Link 
+                to="/qa/history" 
+                className="text-blue-600 text-sm font-medium hover:text-blue-700 inline-flex items-center gap-1 group"
+              >
+                View All <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+            <div className="divide-y">
+              {recentInspections.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ClipboardList className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500">No inspections conducted yet</p>
+                </div>
+              ) : (
+                recentInspections.slice(0, 5).map(inspection => (
+                  <div key={inspection.id} className="px-6 py-4 hover:bg-blue-50/50 flex items-center justify-between transition-colors">
+                    <div>
+                      <p className="font-semibold text-gray-900">{inspection.batch?.batchNumber || 'Batch'}</p>
+                      <p className="text-sm text-gray-500">
+                        {inspection.batch?.productType || 'Product'} • {new Date(inspection.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {getResultBadge(inspection.result)}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-
     </div>
   );
 }
