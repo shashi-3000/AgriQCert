@@ -21,6 +21,27 @@ import toast from "react-hot-toast";
 import authService from "../services/authService";
 import { handleApiError } from "../utils/api";
 
+// Predefined specializations for QA agencies (aligned with ProductType enum)
+const SPECIALIZATIONS = [
+  "RICE",
+  "WHEAT",
+  "CORN",
+  "SOYBEAN",
+  "COTTON",
+  "COFFEE",
+  "TEA",
+  "SPICES",
+  "FRUITS",
+  "VEGETABLES",
+  "PULSES",
+  "SUGAR",
+  "TOBACCO",
+  "NUTS",
+  "ORGANIC_PRODUCE",
+  "HERBS",
+  "SEEDS",
+];
+
 // User roles as per backend
 const USER_ROLES = [
   {
@@ -78,6 +99,8 @@ const Register = () => {
     companyAddress: "",
     licenseNumber: "", // For QA agencies and Customs Officials
     businessRegistrationNumber: "", // For Exporters
+    specializations: [], // For QA agencies - array of selected specializations
+    accreditationBody: "", // For QA agencies
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -139,6 +162,19 @@ const Register = () => {
     }
 
     if (
+      formData.role === "QA_AGENCY" &&
+      formData.specializations.length === 0
+    ) {
+      newErrors.specializations =
+        "At least one specialization is required for QA agencies";
+    }
+
+    if (formData.role === "QA_AGENCY" && !formData.accreditationBody.trim()) {
+      newErrors.accreditationBody =
+        "Accreditation body is required for QA agencies";
+    }
+
+    if (
       formData.role === "CUSTOMS_OFFICIAL" &&
       !formData.licenseNumber.trim()
     ) {
@@ -177,6 +213,14 @@ const Register = () => {
         businessRegistrationNumber:
           formData.role === "EXPORTER"
             ? formData.businessRegistrationNumber
+            : undefined,
+        specializations:
+          formData.role === "QA_AGENCY"
+            ? formData.specializations.join(",")
+            : undefined,
+        accreditationBody:
+          formData.role === "QA_AGENCY"
+            ? formData.accreditationBody
             : undefined,
       };
 
@@ -435,34 +479,125 @@ const Register = () => {
               </div>
             </div>
 
-            {/* QA license (conditional) */}
+            {/* QA Agency Fields (conditional) */}
             {formData.role === "QA_AGENCY" && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-                <label
-                  htmlFor="licenseNumber"
-                  className="block text-sm font-medium text-blue-900 mb-2"
-                >
-                  QA License Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="licenseNumber"
-                  name="licenseNumber"
-                  value={formData.licenseNumber}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
-                    errors.licenseNumber
-                      ? "border-red-400 bg-red-50"
-                      : "border-blue-200 hover:border-blue-300 bg-white"
-                  }`}
-                  placeholder="QA-12345"
-                />
-                {errors.licenseNumber && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {errors.licenseNumber}
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-4">
+                <h3 className="font-semibold text-blue-900 text-sm mb-3">
+                  QA Agency Details
+                </h3>
+
+                <div>
+                  <label
+                    htmlFor="licenseNumber"
+                    className="block text-sm font-medium text-blue-900 mb-2"
+                  >
+                    QA License Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="licenseNumber"
+                    name="licenseNumber"
+                    value={formData.licenseNumber}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                      errors.licenseNumber
+                        ? "border-red-400 bg-red-50"
+                        : "border-blue-200 hover:border-blue-300 bg-white"
+                    }`}
+                    placeholder="QA-12345"
+                  />
+                  {errors.licenseNumber && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.licenseNumber}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-blue-900 mb-3">
+                    Specializations <span className="text-red-500">*</span>
+                  </label>
+                  <div
+                    className={`border-2 rounded-xl p-4 bg-white ${
+                      errors.specializations
+                        ? "border-red-400"
+                        : "border-blue-200"
+                    }`}
+                  >
+                    <div className="grid grid-cols-2 gap-3">
+                      {SPECIALIZATIONS.map((spec) => (
+                        <label
+                          key={spec}
+                          className="flex items-center space-x-2 cursor-pointer hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.specializations.includes(spec)}
+                            onChange={(e) => {
+                              const newSpecializations = e.target.checked
+                                ? [...formData.specializations, spec]
+                                : formData.specializations.filter(
+                                    (s) => s !== spec
+                                  );
+                              setFormData((prev) => ({
+                                ...prev,
+                                specializations: newSpecializations,
+                              }));
+                              if (errors.specializations) {
+                                setErrors((prev) => ({
+                                  ...prev,
+                                  specializations: "",
+                                }));
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {spec.replace(/_/g, " ")}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  {errors.specializations && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.specializations}
+                    </p>
+                  )}
+                  <p className="text-xs text-blue-600 mt-2">
+                    Select all product types your agency is certified to inspect
+                    ({formData.specializations.length} selected)
                   </p>
-                )}
-                <p className="text-xs text-blue-600 mt-2">
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="accreditationBody"
+                    className="block text-sm font-medium text-blue-900 mb-2"
+                  >
+                    Accreditation Body <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="accreditationBody"
+                    name="accreditationBody"
+                    value={formData.accreditationBody}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3.5 border-2 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${
+                      errors.accreditationBody
+                        ? "border-red-400 bg-red-50"
+                        : "border-blue-200 hover:border-blue-300 bg-white"
+                    }`}
+                    placeholder="e.g., FSSAI, ISO 17025"
+                  />
+                  {errors.accreditationBody && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {errors.accreditationBody}
+                    </p>
+                  )}
+                </div>
+
+                <p className="text-xs text-blue-600">
                   Required for QA Agency registration verification
                 </p>
               </div>

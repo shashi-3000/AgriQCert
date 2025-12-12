@@ -1,5 +1,5 @@
 // src/services/inspectionService.js
-import api, { extractData, extractPaginatedData } from '../utils/api';
+import api, { extractData, extractPaginatedData } from "../utils/api";
 
 /**
  * Inspection Service
@@ -18,7 +18,10 @@ const inspectionService = {
    * @returns {Promise<Object>} - Created inspection data
    */
   scheduleInspection: async (batchId, scheduleData) => {
-    const response = await api.post(`/inspections/${batchId}/schedule`, scheduleData);
+    const response = await api.post(
+      `/inspections/${batchId}/schedule`,
+      scheduleData
+    );
     return extractData(response);
   },
 
@@ -48,7 +51,10 @@ const inspectionService = {
    * @returns {Promise<Object>} - Updated inspection data
    */
   submitResults: async (inspectionId, results) => {
-    const response = await api.post(`/inspections/${inspectionId}/results`, results);
+    const response = await api.post(
+      `/inspections/${inspectionId}/results`,
+      results
+    );
     return extractData(response);
   },
 
@@ -78,7 +84,7 @@ const inspectionService = {
    * @returns {Promise<Array>} - Array of pending inspections
    */
   getPendingInspections: async () => {
-    const response = await api.get('/inspections/qa-agency/pending');
+    const response = await api.get("/inspections/qa-agency/pending");
     return extractData(response) || [];
   },
 
@@ -91,48 +97,47 @@ const inspectionService = {
    */
   getAllInspections: async (params = {}) => {
     const { page = 0, size = 10 } = params;
-    const response = await api.get('/inspections/qa-agency/all', {
+    const response = await api.get("/inspections/qa-agency/all", {
       params: { page, size },
     });
     return extractPaginatedData(response);
   },
 };
 
-// Grade rating constants
+// Grade rating constants (must match backend GradeRating enum)
 export const GRADE_RATINGS = [
-  { value: 'A_PLUS', label: 'A+', description: 'Excellent quality' },
-  { value: 'A', label: 'A', description: 'Very good quality' },
-  { value: 'B', label: 'B', description: 'Good quality' },
-  { value: 'C', label: 'C', description: 'Average quality' },
-  { value: 'D', label: 'D', description: 'Below average quality' },
-  { value: 'F', label: 'F', description: 'Failed - Poor quality' },
+  { value: "A", label: "A", description: "Premium Quality" },
+  { value: "B", label: "B", description: "Standard Quality" },
+  { value: "C", label: "C", description: "Acceptable Quality" },
+  { value: "D", label: "D", description: "Below Standard" },
+  { value: "F", label: "F", description: "Rejected" },
 ];
 
 // Inspection status constants
 export const INSPECTION_STATUS = {
-  SCHEDULED: 'SCHEDULED',
-  IN_PROGRESS: 'IN_PROGRESS',
-  COMPLETED: 'COMPLETED',
-  CANCELLED: 'CANCELLED',
+  SCHEDULED: "SCHEDULED",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
 };
 
 // Inspection status display configuration
 export const INSPECTION_STATUS_CONFIG = {
   SCHEDULED: {
-    label: 'Scheduled',
-    color: 'bg-blue-100 text-blue-800',
+    label: "Scheduled",
+    color: "bg-blue-100 text-blue-800",
   },
   IN_PROGRESS: {
-    label: 'In Progress',
-    color: 'bg-yellow-100 text-yellow-800',
+    label: "In Progress",
+    color: "bg-yellow-100 text-yellow-800",
   },
   COMPLETED: {
-    label: 'Completed',
-    color: 'bg-green-100 text-green-800',
+    label: "Completed",
+    color: "bg-green-100 text-green-800",
   },
   CANCELLED: {
-    label: 'Cancelled',
-    color: 'bg-gray-100 text-gray-800',
+    label: "Cancelled",
+    color: "bg-gray-100 text-gray-800",
   },
 };
 

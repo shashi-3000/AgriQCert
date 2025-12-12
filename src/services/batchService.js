@@ -1,5 +1,5 @@
 // src/services/batchService.js
-import api, { extractData, extractPaginatedData } from '../utils/api';
+import api, { extractData, extractPaginatedData } from "../utils/api";
 
 /**
  * Batch Service
@@ -26,22 +26,22 @@ const batchService = {
    */
   submitBatch: async (batchData, files = [], onUploadProgress = null) => {
     const formData = new FormData();
-    
+
     // Add batch data as JSON blob
     formData.append(
-      'batch',
-      new Blob([JSON.stringify(batchData)], { type: 'application/json' })
+      "batch",
+      new Blob([JSON.stringify(batchData)], { type: "application/json" })
     );
-    
+
     // Add files if any
     files.forEach((file) => {
-      formData.append('files', file);
+      formData.append("files", file);
     });
-    
+
     const config = {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { "Content-Type": "multipart/form-data" },
     };
-    
+
     if (onUploadProgress) {
       config.onUploadProgress = (progressEvent) => {
         const percent = Math.round(
@@ -50,8 +50,8 @@ const batchService = {
         onUploadProgress(percent);
       };
     }
-    
-    const response = await api.post('/batches/submit', formData, config);
+
+    const response = await api.post("/batches/submit", formData, config);
     return extractData(response);
   },
 
@@ -65,8 +65,13 @@ const batchService = {
    * @returns {Promise<Object>} - Paginated batch data
    */
   getMyBatches: async (params = {}) => {
-    const { page = 0, size = 10, sortBy = 'createdAt', sortDir = 'desc' } = params;
-    const response = await api.get('/batches/exporter/my-batches', {
+    const {
+      page = 0,
+      size = 10,
+      sortBy = "createdAt",
+      sortDir = "desc",
+    } = params;
+    const response = await api.get("/batches/exporter/my-batches", {
       params: { page, size, sortBy, sortDir },
     });
     return extractPaginatedData(response);
@@ -98,7 +103,7 @@ const batchService = {
    * @returns {Promise<Array>} - Array of batches
    */
   getBatchesByStatus: async (status) => {
-    const response = await api.get('/batches/exporter/by-status', {
+    const response = await api.get("/batches/exporter/by-status", {
       params: { status },
     });
     return extractData(response) || [];
@@ -139,7 +144,7 @@ const batchService = {
    * @returns {Promise<Object>} - Paginated search results
    */
   searchBatches: async (params = {}) => {
-    const response = await api.get('/batches/search', { params });
+    const response = await api.get("/batches/search", { params });
     return extractPaginatedData(response);
   },
 
@@ -150,7 +155,7 @@ const batchService = {
    */
   getAssignedBatches: async (params = {}) => {
     const { page = 0, size = 10 } = params;
-    const response = await api.get('/batches/qa-agency/assigned', {
+    const response = await api.get("/batches/qa-agency/assigned", {
       params: { page, size },
     });
     return extractPaginatedData(response);
@@ -161,66 +166,74 @@ const batchService = {
    * @returns {Promise<Array>} - Array of pending batches
    */
   getPendingBatches: async () => {
-    const response = await api.get('/batches/qa-agency/pending');
+    const response = await api.get("/batches/qa-agency/pending");
     return extractData(response) || [];
   },
 };
 
-// Product type constants
+// Product type constants (must match backend ProductType enum)
 export const PRODUCT_TYPES = [
-  'RICE',
-  'WHEAT',
-  'CORN',
-  'SOYBEANS',
-  'COFFEE',
-  'TEA',
-  'SPICES',
-  'FRUITS',
-  'VEGETABLES',
-  'NUTS',
+  "RICE",
+  "WHEAT",
+  "CORN",
+  "SOYBEAN",
+  "COTTON",
+  "COFFEE",
+  "TEA",
+  "SPICES",
+  "FRUITS",
+  "VEGETABLES",
+  "PULSES",
+  "SUGAR",
+  "TOBACCO",
+  "NUTS",
+  "ORGANIC_PRODUCE",
+  "HERBS",
+  "SEEDS",
+  "OTHER",
 ];
 
 // Batch status constants
 export const BATCH_STATUS = {
-  SUBMITTED: 'SUBMITTED',
-  ASSIGNED: 'ASSIGNED',
-  UNDER_INSPECTION: 'UNDER_INSPECTION',
-  CERTIFIED: 'CERTIFIED',
-  REJECTED: 'REJECTED',
-  CANCELLED: 'CANCELLED',
+  SUBMITTED: "SUBMITTED",
+  ASSIGNED: "ASSIGNED",
+  UNDER_INSPECTION: "UNDER_INSPECTION",
+  CERTIFIED: "CERTIFIED",
+  REJECTED: "REJECTED",
+  CANCELLED: "CANCELLED",
 };
 
 // Status display configuration
 export const BATCH_STATUS_CONFIG = {
   SUBMITTED: {
-    label: 'Submitted',
-    color: 'bg-blue-100 text-blue-800',
-    bgColor: 'bg-blue-500',
+    label: "Submitted",
+    color: "bg-blue-100 text-blue-800",
+    bgColor: "bg-blue-500",
   },
   ASSIGNED: {
-    label: 'Assigned',
-    color: 'bg-purple-100 text-purple-800',
-    bgColor: 'bg-purple-500',
+    label: "Assigned",
+    color: "bg-purple-100 text-purple-800",
+    bgColor: "bg-purple-500",
   },
   UNDER_INSPECTION: {
-    label: 'Under Inspection',
-    color: 'bg-yellow-100 text-yellow-800',
-    bgColor: 'bg-yellow-500',
+    label: "Under Inspection",
+    color: "bg-yellow-100 text-yellow-800",
+    bgColor: "bg-yellow-500",
   },
   CERTIFIED: {
-    label: 'Certified',
-    color: 'bg-green-100 text-green-800',
-    bgColor: 'bg-green-500',
+    label: "Certified",
+    color: "bg-green-100 text-green-800",
+    bgColor: "bg-green-500",
   },
   REJECTED: {
-    label: 'Rejected',
-    color: 'bg-red-100 text-red-800',
-    bgColor: 'bg-red-500',
+    label: "Rejected",
+    color: "bg-red-100 text-red-800",
+    bgColor: "bg-red-500",
   },
   CANCELLED: {
-    label: 'Cancelled',
-    color: 'bg-gray-100 text-gray-800',
-    bgColor: 'bg-gray-500',
+    label: "Cancelled",
+    color: "bg-gray-100 text-gray-800",
+    bgColor: "bg-gray-500",
   },
 };
 
