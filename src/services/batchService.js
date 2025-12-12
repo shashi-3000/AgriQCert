@@ -56,6 +56,19 @@ const batchService = {
   },
 
   /**
+   * Get download URL for attachment with authentication
+   * @param {string} url - Attachment URL (relative path)
+   * @returns {string} - Full URL with auth token
+   */
+  getAuthenticatedAttachmentUrl: (url) => {
+    const token = localStorage.getItem("token");
+    const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8083/api";
+    // Remove leading /api if present in url since baseURL already has it
+    const cleanUrl = url.startsWith("/api") ? url.substring(4) : url;
+    return `${baseURL}${cleanUrl}?token=${token}`;
+  },
+
+  /**
    * Get exporter's batches (paginated)
    * @param {Object} params - Query parameters
    * @param {number} params.page - Page number (0-indexed)

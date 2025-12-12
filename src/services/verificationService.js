@@ -1,8 +1,8 @@
 // src/services/verificationService.js
-import axios from 'axios';
+import axios from "axios";
 
 // Use axios directly without auth interceptor for public endpoints
-const API_BASE_URL = 'http://localhost:8083/api/v1';
+const API_BASE_URL = "http://localhost:8083/api/v1";
 
 /**
  * Verification Service
@@ -38,7 +38,9 @@ const verificationService = {
    * @returns {Promise<Object>} - Verification result
    */
   verifyByBatchNumber: async (batchNumber) => {
-    const response = await axios.get(`${API_BASE_URL}/verify/batch/${batchNumber}`);
+    const response = await axios.get(
+      `${API_BASE_URL}/verify/batch/${batchNumber}`
+    );
     return response.data?.data;
   },
 
@@ -48,7 +50,9 @@ const verificationService = {
    * @returns {Promise<Object>} - Credential status information
    */
   getCredentialStatus: async (credentialId) => {
-    const response = await axios.get(`${API_BASE_URL}/verify/${credentialId}/status`);
+    const response = await axios.get(
+      `${API_BASE_URL}/verify/${credentialId}/status`
+    );
     return response.data?.data;
   },
 
@@ -71,8 +75,8 @@ export const parseVerificationResult = (result) => {
   if (!result) {
     return {
       isValid: false,
-      status: 'UNKNOWN',
-      message: 'No verification data received',
+      status: "UNKNOWN",
+      message: "No verification data received",
     };
   }
 
@@ -96,32 +100,52 @@ export const parseVerificationResult = (result) => {
 export const getVerificationStatusConfig = (status) => {
   const configs = {
     ACTIVE: {
-      label: 'Valid Certificate',
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      borderColor: 'border-green-500',
-      icon: 'check-circle',
+      label: "Valid Certificate",
+      description: "This certificate is active and verified",
+      color: "text-green-600",
+      bgColor: "bg-green-100",
+      borderColor: "border-green-500",
+      icon: "check-circle",
+    },
+    ISSUED: {
+      label: "Valid Certificate",
+      description: "This certificate has been issued and is valid",
+      color: "text-green-600",
+      bgColor: "bg-green-100",
+      borderColor: "border-green-500",
+      icon: "check-circle",
+    },
+    PENDING: {
+      label: "Certificate Pending",
+      description: "Certificate is being processed",
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-100",
+      borderColor: "border-yellow-500",
+      icon: "clock",
     },
     REVOKED: {
-      label: 'Certificate Revoked',
-      color: 'text-red-600',
-      bgColor: 'bg-red-100',
-      borderColor: 'border-red-500',
-      icon: 'x-circle',
+      label: "Certificate Revoked",
+      description: "This certificate has been revoked",
+      color: "text-red-600",
+      bgColor: "bg-red-100",
+      borderColor: "border-red-500",
+      icon: "x-circle",
     },
     EXPIRED: {
-      label: 'Certificate Expired',
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100',
-      borderColor: 'border-yellow-500',
-      icon: 'clock',
+      label: "Certificate Expired",
+      description: "This certificate has expired",
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-100",
+      borderColor: "border-yellow-500",
+      icon: "clock",
     },
     NOT_FOUND: {
-      label: 'Certificate Not Found',
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-100',
-      borderColor: 'border-gray-500',
-      icon: 'search',
+      label: "Certificate Not Found",
+      description: "No certificate exists with this ID",
+      color: "text-gray-600",
+      bgColor: "bg-gray-100",
+      borderColor: "border-gray-500",
+      icon: "search",
     },
   };
 

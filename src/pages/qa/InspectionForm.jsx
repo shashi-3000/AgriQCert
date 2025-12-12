@@ -295,6 +295,60 @@ export default function InspectionForm() {
             </div>
           )}
         </div>
+
+        {/* Uploaded Documents Section */}
+        {batch.attachments && batch.attachments.length > 0 && (
+          <div className="mt-6 pt-6 border-t">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+              Uploaded Documents ({batch.attachments.length})
+            </h3>
+            <div className="grid gap-2">
+              {batch.attachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded flex items-center justify-center">
+                      <svg
+                        className="h-4 w-4 text-blue-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {attachment.originalFileName}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {attachment.attachmentType} •{" "}
+                        {(attachment.fileSize / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      // Open in new tab - backend serves inline so it will display
+                      window.open(attachment.downloadUrl, "_blank");
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                  >
+                    View
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Inspection Form */}
